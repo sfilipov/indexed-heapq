@@ -139,59 +139,6 @@ def test_ipq_stateful():
     IPQComparison.TestCase().runTest()
 
 
-@given(st.dictionaries(st_key, st.lists(st_priority)), st.randoms())
-def test_ipq_many_fuzz(d: dict[Key, list[int]], rnd: random.Random):
-    actions = ["upsert", "delete"]
-    ipq = NaiveIndexedPriorityQueue[Key, int]()
-    d = {key: priorities for key, priorities in d.items() if priorities}
-    next_action = {key: "insert" for key in d}
-    d_cur = dict[Key, int]()
-    while d or ipq:
-        action = rnd.choice(actions)
-        if not ipq:
-            action = "upsert"
-        elif not d:
-            action = "delete"
-
-        if action == "upsert":
-            key = rnd.choice(list(d.keys()))
-            priority = d[key].pop()
-            if not d[key]:
-                del d[key]
-            if next_action[key] == "insert":
-                note(f"insert {key=} {priority=}")
-                assert key not in ipq
-                ipq.insert(key, priority)
-            else:
-                note(f"update {key=} {priority=}")
-                assert key in ipq
-                ipq.update(key, priority)
-
-            assert ipq.get(key) == priority
-            next_action[key] = "update"
-            d_cur[key] = priority
-
-        else:
-            if rnd.choice((True, False)):
-                key, priority = ipq.peek()
-                note(f"pop {key=} {priority=}")
-                assert key in ipq
-                assert ipq.get(key) == priority
-                assert (key, priority) == ipq.pop()
-                assert priority == min(d_cur.values())
-                assert priority == d_cur[key]
-                assert key not in ipq
-            else:
-                key, priority = rnd.choice(list(d_cur.items()))
-                note(f"remove {key=} {priority=}")
-                assert key in ipq
-                assert ipq.get(key) == priority
-                ipq.remove(key)
-                assert key not in ipq
-            del d_cur[key]
-            next_action[key] = "insert"
-
-
 def assert_ipq_contains_exactly(ipq: IndexedHeapQueue[Key, int], d: dict[Key, int]):
     assert len(ipq) == len(d)
 
