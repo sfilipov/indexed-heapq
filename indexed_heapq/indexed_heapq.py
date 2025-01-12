@@ -1,23 +1,43 @@
-from typing import Hashable, Protocol, NamedTuple
+from typing import Hashable, Iterable, Protocol, TypeVar, Generic
 
 
-class SupportsLessThan[T](Protocol):
+T = TypeVar("T", contravariant=True)
+
+
+class SupportsLessThan(Protocol[T]):
     def __lt__(self: T, other: T, /) -> bool: ...
 
 
-class Item[K: Hashable, P: SupportsLessThan](NamedTuple):
-    priority: P
-    key: K
+K = TypeVar("K", bound=Hashable)
+P = TypeVar("P", bound=SupportsLessThan)
+Pco = TypeVar("Pco", bound=SupportsLessThan, covariant=True)
 
 
-class IndexedHeapQueue[K: Hashable, P: SupportsLessThan]:
+class SupportsKeysAndGetItem(Protocol[K, Pco]):
+    def keys(self) -> Iterable[K]: ...
+    def __getitem__(self, key: K, /) -> Pco: ...
+
+
+class Comparator(Generic[K, P]):
+    def __init__(self, key: K, priority: P):
+        self.key = key
+        self.priority = priority
+
+    def __lt__(self, other: "Comparator[K, P]", /) -> bool:
+        return self.priority < other.priority
+
+    def __repr__(self):
+        return f"Comparator({repr(self.key)}, {repr(self.priority)})"
+
+
+class IndexedHeapQueue(Generic[K, P]):
     """
     Indexed implementation of a min heap.
     The queue stores a set of items, each with an associated priority.
     """
 
     def __init__(self):
-        self.pq: list[Item[K, P]] = []
+        self.pq: list[Comparator[K, P]] = []
         self.pq_index: dict[K, int] = {}
 
     def __len__(self) -> int:
@@ -64,7 +84,7 @@ class IndexedHeapQueue[K: Hashable, P: SupportsLessThan]:
         """
         if key in self.pq_index:
             raise ValueError(f"key {key} already in priority queue")
-        item = Item(priority, key)
+        item = Comparator(key, priority)
         self.pq.append(item)
         self.pq_index[key] = len(self.pq) - 1
         self._sift_up(len(self.pq) - 1)
@@ -91,12 +111,11 @@ class IndexedHeapQueue[K: Hashable, P: SupportsLessThan]:
         if key not in self.pq_index:
             raise KeyError(f"key {key} not in priority queue")
 
-        new_item = Item(priority, key)
         index = self.pq_index[key]
-        old_item = self.pq[index]
-        self.pq[index] = new_item
-        self.pq_index[key] = index
-        if new_item.priority < old_item.priority:
+        item = self.pq[index]
+        old_priority = item.priority
+        item.priority = priority
+        if priority < old_priority:
             self._sift_up(index)
         else:
             self._sink_down(index)

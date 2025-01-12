@@ -1,7 +1,6 @@
-from typing import Hashable, Protocol
+from typing import Union
 
 from collections import defaultdict
-import heapq
 import random
 
 import pytest
@@ -9,15 +8,17 @@ from hypothesis import assume, given, note, strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, rule, precondition, invariant
 
 from indexed_heapq import IndexedHeapQueue
+from .naive import NaiveIndexedPriorityQueue
 
 
-class SupportsLessThan[T](Protocol):
-    def __lt__(self: T, other: T, /) -> bool: ...
+Key = Union[str, int]
 
-
-type Key = int | str
 st_key = st.one_of(st.integers(), st.text())
 st_priority = st.integers(min_value=-10, max_value=10)
+
+
+def sampled_from_set(set):
+    return st.sampled_from(sorted(set, key=lambda x: (type(x) == str, x)))
 
 
 def test_ipq_initialization():
@@ -134,6 +135,10 @@ def test_ipq_many_removes(d: dict[Key, int]):
     assert len(ipq) == 0
 
 
+def test_ipq_stateful():
+    IPQComparison.TestCase().runTest()
+
+
 @given(st.dictionaries(st_key, st.lists(st_priority)), st.randoms())
 def test_ipq_many_fuzz(d: dict[Key, list[int]], rnd: random.Random):
     actions = ["upsert", "delete"]
@@ -187,10 +192,6 @@ def test_ipq_many_fuzz(d: dict[Key, list[int]], rnd: random.Random):
             next_action[key] = "insert"
 
 
-def test_ipq_stateful():
-    IPQComparison.TestCase().runTest()
-
-
 def assert_ipq_contains_exactly(ipq: IndexedHeapQueue[Key, int], d: dict[Key, int]):
     assert len(ipq) == len(d)
 
@@ -240,8 +241,8 @@ class IPQComparison(RuleBasedStateMachine):
 
     @precondition(lambda self: len(self.new_keys) > 0 and len(self.priorities) > 0)
     @rule(
-        k=st.runner().flatmap(lambda self: sample_from_set(self.new_keys)),
-        p=st.runner().flatmap(lambda self: sample_from_set(self.priorities)),
+        k=st.runner().flatmap(lambda self: sampled_from_set(self.new_keys)),
+        p=st.runner().flatmap(lambda self: sampled_from_set(self.priorities)),
     )
     def insert(self, k, p):
         self.ipq.insert(k, p)
@@ -253,8 +254,8 @@ class IPQComparison(RuleBasedStateMachine):
 
     @precondition(lambda self: len(self.inserted_keys) > 0 and len(self.priorities) > 0)
     @rule(
-        k=st.runner().flatmap(lambda self: sample_from_set(self.inserted_keys)),
-        p=st.runner().flatmap(lambda self: sample_from_set(self.priorities)),
+        k=st.runner().flatmap(lambda self: sampled_from_set(self.inserted_keys)),
+        p=st.runner().flatmap(lambda self: sampled_from_set(self.priorities)),
     )
     def update(self, k, p):
         assert self.ipq.get(k) == self.naive.get(k)
@@ -274,7 +275,7 @@ class IPQComparison(RuleBasedStateMachine):
 
     @precondition(lambda self: len(self.inserted_keys) > 0)
     @rule(
-        k=st.runner().flatmap(lambda self: sample_from_set(self.inserted_keys)),
+        k=st.runner().flatmap(lambda self: sampled_from_set(self.inserted_keys)),
     )
     def remove(self, k):
         assert self.ipq.get(k) == self.naive.get(k)
@@ -293,76 +294,3 @@ class IPQComparison(RuleBasedStateMachine):
     def match_peek(self):
         if len(self.ipq) > 0:
             assert self.ipq.peek()[1] == self.naive.peek()[1]
-
-
-def sample_from_set(set):
-    return st.sampled_from(sorted(set, key=lambda x: (type(x) == str, x)))
-
-
-class Comparator[K: Hashable, P: SupportsLessThan]:
-    def __init__(self, key: K, priority: P):
-        self.key = key
-        self.priority = priority
-
-    def __lt__(self, other: "Comparator[K, P]", /) -> bool:
-        return self.priority < other.priority
-
-    def __repr__(self):
-        return f"Comparator({repr(self.key)}, {repr(self.priority)})"
-
-
-class NaiveIndexedPriorityQueue[K: Hashable, P: SupportsLessThan]:
-    """
-    Naive (slow) simple indexed priority queue used for testing purposes only.
-    Used to check correctness of invariants between operations.
-    """
-
-    def __init__(self):
-        self.pq: list[Comparator[K, P]] = []
-
-    def __len__(self) -> int:
-        return len(self.pq)
-
-    def __contains__(self, key: K) -> bool:
-        match = [item for item in self.pq if item.key == key]
-        return len(match) > 0
-
-    def insert(self, key: K, priority: P):
-        match = [item for item in self.pq if item.key == key]
-        if match:
-            raise ValueError(f"Key {key} already in queue")
-
-        item = Comparator(key, priority)
-        heapq.heappush(self.pq, item)
-
-    def update(self, key: K, priority: P):
-        match = [item for item in self.pq if item.key == key]
-        if not match:
-            raise KeyError(f"Key {key} not in queue")
-
-        item = match[0]
-        item.priority = priority
-        heapq.heapify(self.pq)
-
-    def get(self, key: K) -> P:
-        match = [item for item in self.pq if item.key == key]
-        if not match:
-            raise KeyError(f"Key {key} not in queue")
-
-        return match[0].priority
-
-    def peek(self) -> tuple[K, P]:
-        item = self.pq[0]
-        return item.key, item.priority
-
-    def pop(self) -> tuple[K, P]:
-        item = heapq.heappop(self.pq)
-        return item.key, item.priority
-
-    def remove(self, key: K):
-        match = [i for i, item in enumerate(self.pq) if item.key == key]
-        if not match:
-            raise KeyError(f"Key {key} not in queue")
-
-        self.pq.pop(match[0])
-        heapq.heapify(self.pq)
