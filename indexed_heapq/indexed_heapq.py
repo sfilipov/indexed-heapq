@@ -1,4 +1,5 @@
-from typing import Hashable, Iterable, Protocol, TypeVar, Generic
+from typing import Hashable, Iterable, Protocol, TypeVar, Generic, Optional
+import heapq
 
 
 T = TypeVar("T", contravariant=True)
@@ -36,9 +37,17 @@ class IndexedHeapQueue(Generic[K, P]):
     The queue stores a set of items, each with an associated priority.
     """
 
-    def __init__(self):
+    def __init__(self, map: Optional[SupportsKeysAndGetItem[K, P]] = None, /):
         self.pq: list[Comparator[K, P]] = []
         self.pq_index: dict[K, int] = {}
+
+        if not map:
+            return
+        for key in map.keys():
+            self.pq.append(Comparator(key, map[key]))
+
+        heapq.heapify(self.pq)
+        self.pq_index = {item.key: i for i, item in enumerate(self.pq)}
 
     def __len__(self) -> int:
         return len(self.pq)
@@ -135,7 +144,7 @@ class IndexedHeapQueue(Generic[K, P]):
         """
         while index > 0:
             parent_index = (index - 1) // 2
-            if self.pq[index].priority < self.pq[parent_index].priority:
+            if self.pq[index] < self.pq[parent_index]:
                 self.pq[index], self.pq[parent_index] = (
                     self.pq[parent_index],
                     self.pq[index],
@@ -154,15 +163,9 @@ class IndexedHeapQueue(Generic[K, P]):
             left_idx = 2 * index + 1
             right_idx = 2 * index + 2
             smallest = index
-            if (
-                left_idx < len(self.pq)
-                and self.pq[left_idx].priority < self.pq[smallest].priority
-            ):
+            if left_idx < len(self.pq) and self.pq[left_idx] < self.pq[smallest]:
                 smallest = left_idx
-            if (
-                right_idx < len(self.pq)
-                and self.pq[right_idx].priority < self.pq[smallest].priority
-            ):
+            if right_idx < len(self.pq) and self.pq[right_idx] < self.pq[smallest]:
                 smallest = right_idx
             if smallest != index:
                 self.pq[index], self.pq[smallest] = self.pq[smallest], self.pq[index]

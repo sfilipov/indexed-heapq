@@ -5,7 +5,13 @@ import random
 
 import pytest
 from hypothesis import assume, given, note, strategies as st
-from hypothesis.stateful import RuleBasedStateMachine, rule, precondition, invariant
+from hypothesis.stateful import (
+    RuleBasedStateMachine,
+    rule,
+    precondition,
+    invariant,
+    initialize,
+)
 
 from indexed_heapq import IndexedHeapQueue
 from .naive import NaiveIndexedPriorityQueue
@@ -69,11 +75,14 @@ def test_ipq_empty_contains_returns_false():
 
 
 @given(st.dictionaries(st_key, st_priority))
-def test_ipq_many_inserts(d: dict[Key, int]):
-    ipq = IndexedHeapQueue[Key, int]()
+def test_ipq_initialize_from_map(d: dict[Key, int]):
+    ipq = IndexedHeapQueue(d)
     for key, priority in d.items():
-        ipq.insert(key, priority)
-    assert len(ipq) == len(d)
+        assert key in ipq
+        assert ipq.get(key) == priority
+    if d:
+        min_priority = min(d.values())
+        assert ipq.peek()[1] == min_priority
 
 
 @given(st.dictionaries(st_key, st_priority))
@@ -81,11 +90,9 @@ def test_ipq_many_gets(d: dict[Key, int]):
     ipq = IndexedHeapQueue[Key, int]()
     for key, priority in d.items():
         ipq.insert(key, priority)
-    assert len(ipq) == len(d)
     for key, priority in d.items():
         assert key in ipq
         assert ipq.get(key) == priority
-    assert len(ipq) == len(d)
 
 
 @given(st.dictionaries(st_key, st_priority))
@@ -132,8 +139,6 @@ def test_ipq_many_removes(d: dict[Key, int]):
         ipq.remove(key)
         assert key not in ipq
 
-    assert len(ipq) == 0
-
 
 def test_ipq_stateful():
     IPQComparison.TestCase().runTest()
@@ -169,12 +174,20 @@ def assert_ipq_contains_exactly(ipq: IndexedHeapQueue[Key, int], d: dict[Key, in
 class IPQComparison(RuleBasedStateMachine):
     def __init__(self):
         super().__init__()
-        self.ipq = IndexedHeapQueue[Key, int]()
-        self.naive = NaiveIndexedPriorityQueue[Key, int]()
         self.new_keys = set()
         self.inserted_keys = set()
         self.priorities = set()
         self.size = 0
+
+    @initialize(d=st.dictionaries(st_key, st_priority))
+    def init_with_dict(self, d: dict[Key, int]):
+        self.ipq = IndexedHeapQueue(d)
+        self.naive = NaiveIndexedPriorityQueue[Key, int]()
+        for k, v in d.items():
+            self.naive.insert(k, v)
+            self.inserted_keys.add(k)
+            self.priorities.add(v)
+        self.size = len(d)
 
     @rule(k=st_key)
     def add_key(self, k):
@@ -236,8 +249,15 @@ class IPQComparison(RuleBasedStateMachine):
     @invariant()
     def match_len(self):
         assert len(self.ipq) == self.size
+        assert len(self.ipq.pq) == self.size
+        assert len(self.ipq.pq_index) == self.size
 
     @invariant()
     def match_peek(self):
         if len(self.ipq) > 0:
             assert self.ipq.peek()[1] == self.naive.peek()[1]
+
+    @invariant()
+    def match_key_vals(self):
+        for key in self.inserted_keys:
+            assert self.ipq.get(key) == self.naive.get(key)
