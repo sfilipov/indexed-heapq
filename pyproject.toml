@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "indexed-heapq"
+description = "Indexed Heap Queue (Priority Queue)"
+authors = [{ name = "Simeon Filipov" }]
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT License" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/sfilipov/indexed-heapq"
+Tracker = "https://github.com/sfilipov/indexed-heapq/issues"
