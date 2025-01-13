@@ -55,6 +55,57 @@ class IndexedHeapQueue(Generic[K, P]):
     def __contains__(self, key: K) -> bool:
         return key in self.pq_index
 
+    def peek(self) -> tuple[K, P]:
+        """
+        Return the item with the minimum priority without removing it.
+        """
+        if not self.pq:
+            raise IndexError("peek from empty priority queue")
+        return self.pq[0].key, self.pq[0].priority
+
+    def __getitem__(self, key: K) -> P:
+        """
+        Return the priority of the item with the given key.
+        """
+        if key not in self.pq_index:
+            raise KeyError(f"key {key} not in priority queue")
+        return self.pq[self.pq_index[key]].priority
+
+    def __setitem__(self, key: K, priority: P) -> None:
+        """
+        Set the given priority for the given key.
+        """
+
+        if key not in self.pq_index:
+            item = Comparator(key, priority)
+            self.pq.append(item)
+            self.pq_index[key] = len(self.pq) - 1
+            self._sift_up(len(self.pq) - 1)
+        else:
+            index = self.pq_index[key]
+            item = self.pq[index]
+            old_priority = item.priority
+            item.priority = priority
+            if priority < old_priority:
+                self._sift_up(index)
+            else:
+                self._sink_down(index)
+
+    def __delitem__(self, key: K) -> None:
+        """
+        Remove the item with the given key.
+        """
+        if key not in self.pq_index:
+            raise KeyError(f"key {key} not in priority queue")
+        index = self.pq_index[key]
+        last_item = self.pq.pop()
+        if index < len(self.pq):
+            self.pq[index] = last_item
+            self.pq_index[last_item.key] = index
+            self._sift_up(index)
+            self._sink_down(index)
+        del self.pq_index[key]
+
     def pop(self) -> tuple[K, P]:
         """
         Remove and return the item with the minimum priority.
@@ -70,73 +121,6 @@ class IndexedHeapQueue(Generic[K, P]):
             self._sink_down(0)
         del self.pq_index[min_item.key]
         return min_item.key, min_item.priority
-
-    def peek(self) -> tuple[K, P]:
-        """
-        Return the item with the minimum priority without removing it.
-        """
-        if not self.pq:
-            raise IndexError("peek from empty priority queue")
-        return self.pq[0].key, self.pq[0].priority
-
-    def get(self, key: K) -> P:
-        """
-        Return the priority of the item with the given key.
-        """
-        if key not in self.pq_index:
-            raise KeyError(f"key {key} not in priority queue")
-        return self.pq[self.pq_index[key]].priority
-
-    def insert(self, key: K, priority: P) -> None:
-        """
-        Insert an item with the given key and priority.
-        """
-        if key in self.pq_index:
-            raise ValueError(f"key {key} already in priority queue")
-        item = Comparator(key, priority)
-        self.pq.append(item)
-        self.pq_index[key] = len(self.pq) - 1
-        self._sift_up(len(self.pq) - 1)
-
-    def remove(self, key: K) -> None:
-        """
-        Remove the item with the given key.
-        """
-        if key not in self.pq_index:
-            raise KeyError(f"key {key} not in priority queue")
-        index = self.pq_index[key]
-        last_item = self.pq.pop()
-        if index < len(self.pq):
-            self.pq[index] = last_item
-            self.pq_index[last_item.key] = index
-            self._sift_up(index)
-            self._sink_down(index)
-        del self.pq_index[key]
-
-    def update(self, key: K, priority: P) -> None:
-        """
-        Update the priority of the item with the given key.
-        """
-        if key not in self.pq_index:
-            raise KeyError(f"key {key} not in priority queue")
-
-        index = self.pq_index[key]
-        item = self.pq[index]
-        old_priority = item.priority
-        item.priority = priority
-        if priority < old_priority:
-            self._sift_up(index)
-        else:
-            self._sink_down(index)
-
-    def upsert(self, key: K, priority: P) -> None:
-        """
-        Update the priority of the item with the given key, or insert it if it does not exist.
-        """
-        if key in self.pq_index:
-            self.update(key, priority)
-        else:
-            self.insert(key, priority)
 
     def _sift_up(self, index: int):
         """

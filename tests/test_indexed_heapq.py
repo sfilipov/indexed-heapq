@@ -47,26 +47,13 @@ def test_ipq_empty_pop_raises():
 def test_ipq_empty_get_raises():
     ipq = IndexedHeapQueue()
     with pytest.raises(KeyError):
-        ipq.get(0)
+        ipq[0]
 
 
-def test_ipq_empty_remove_raises():
+def test_ipq_empty_del_raises():
     ipq = IndexedHeapQueue()
     with pytest.raises(KeyError):
-        ipq.remove(0)
-
-
-def test_ipq_double_insert_raises():
-    ipq = IndexedHeapQueue()
-    ipq.insert(0, 0)
-    with pytest.raises(ValueError):
-        ipq.insert(0, 0)
-
-
-def test_ipq_empty_update_raises():
-    ipq = IndexedHeapQueue()
-    with pytest.raises(KeyError):
-        ipq.update(0, 0)
+        del ipq[0]
 
 
 def test_ipq_empty_contains_returns_false():
@@ -79,7 +66,7 @@ def test_ipq_initialize_from_map(d: dict[Key, int]):
     ipq = IndexedHeapQueue(d)
     for key, priority in d.items():
         assert key in ipq
-        assert ipq.get(key) == priority
+        assert ipq[key] == priority
     if d:
         min_priority = min(d.values())
         assert ipq.peek()[1] == min_priority
@@ -89,17 +76,17 @@ def test_ipq_initialize_from_map(d: dict[Key, int]):
 def test_ipq_many_gets(d: dict[Key, int]):
     ipq = IndexedHeapQueue[Key, int]()
     for key, priority in d.items():
-        ipq.insert(key, priority)
+        ipq[key] = priority
     for key, priority in d.items():
         assert key in ipq
-        assert ipq.get(key) == priority
+        assert ipq[key] == priority
 
 
 @given(st.dictionaries(st_key, st_priority))
 def test_ipq_many_pops(d: dict[Key, int]):
     ipq = IndexedHeapQueue[Key, int]()
     for key, priority in d.items():
-        ipq.insert(key, priority)
+        ipq[key] = priority
 
     assert_ipq_contains_exactly(ipq, d)
 
@@ -107,36 +94,23 @@ def test_ipq_many_pops(d: dict[Key, int]):
 @given(st.dictionaries(st_key, st.tuples(st_priority, st_priority)))
 def test_ipq_many_inserts_and_updates(d: dict[Key, tuple[int, int]]):
     ipq = IndexedHeapQueue[Key, int]()
-    for key, (priority, _) in d.items():
-        ipq.insert(key, priority)
-    for key, (_, priority) in d.items():
-        ipq.update(key, priority)
-
-    d_upd = {key: priority for key, (_, priority) in d.items()}
-    assert_ipq_contains_exactly(ipq, d_upd)
-
-
-@given(st.dictionaries(st_key, st.tuples(st_priority, st_priority)))
-def test_ipq_many_upserts(d: dict[Key, tuple[int, int]]):
-    ipq = IndexedHeapQueue[Key, int]()
-    for key, (priority, _) in d.items():
-        ipq.upsert(key, priority)
-    for key, (_, priority) in d.items():
-        ipq.upsert(key, priority)
+    for key, (insert, update) in d.items():
+        ipq[key] = insert
+        ipq[key] = update
 
     d_upd = {key: priority for key, (_, priority) in d.items()}
     assert_ipq_contains_exactly(ipq, d_upd)
 
 
 @given(st.dictionaries(st_key, st_priority))
-def test_ipq_many_removes(d: dict[Key, int]):
+def test_ipq_many_dels(d: dict[Key, int]):
     ipq = IndexedHeapQueue[Key, int]()
     for key, priority in d.items():
-        ipq.insert(key, priority)
+        ipq[key] = priority
 
     for key in d.keys():
         assert key in ipq
-        ipq.remove(key)
+        del ipq[key]
         assert key not in ipq
 
 
@@ -205,9 +179,9 @@ class IPQComparison(RuleBasedStateMachine):
         p=st.runner().flatmap(lambda self: sampled_from_set(self.priorities)),
     )
     def insert(self, k, p):
-        self.ipq.insert(k, p)
+        self.ipq[k] = p
         self.naive.insert(k, p)
-        assert self.ipq.get(k) == self.naive.get(k)
+        assert self.ipq[k] == self.naive.get(k)
         self.new_keys.remove(k)
         self.inserted_keys.add(k)
         self.size += 1
@@ -218,10 +192,10 @@ class IPQComparison(RuleBasedStateMachine):
         p=st.runner().flatmap(lambda self: sampled_from_set(self.priorities)),
     )
     def update(self, k, p):
-        assert self.ipq.get(k) == self.naive.get(k)
-        self.ipq.update(k, p)
+        assert self.ipq[k] == self.naive.get(k)
+        self.ipq[k] = p
         self.naive.update(k, p)
-        assert self.ipq.get(k) == self.naive.get(k)
+        assert self.ipq[k] == self.naive.get(k)
 
     @precondition(lambda self: len(self.inserted_keys) > 0)
     @rule()
@@ -238,8 +212,8 @@ class IPQComparison(RuleBasedStateMachine):
         k=st.runner().flatmap(lambda self: sampled_from_set(self.inserted_keys)),
     )
     def remove(self, k):
-        assert self.ipq.get(k) == self.naive.get(k)
-        self.ipq.remove(k)
+        assert self.ipq[k] == self.naive.get(k)
+        del self.ipq[k]
         self.naive.remove(k)
         assert k not in self.ipq
         self.inserted_keys.remove(k)
@@ -260,4 +234,4 @@ class IPQComparison(RuleBasedStateMachine):
     @invariant()
     def match_key_vals(self):
         for key in self.inserted_keys:
-            assert self.ipq.get(key) == self.naive.get(key)
+            assert self.ipq[key] == self.naive.get(key)
