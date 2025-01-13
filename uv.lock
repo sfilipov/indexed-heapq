@@ -45,7 +45,7 @@ wheels = [
 [[package]]
 name = "indexed-heapq"
 version = "0.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
