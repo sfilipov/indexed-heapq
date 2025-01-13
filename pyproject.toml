@@ -7,7 +7,7 @@ name = "indexed-heapq"
 description = "Indexed Heap Queue (Priority Queue)"
 authors = [{ name = "Simeon Filipov" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 license = { text = "MIT License" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -21,3 +21,10 @@ dynamic = ["version"]
 [project.urls]
 Source = "https://github.com/sfilipov/indexed-heapq"
 Tracker = "https://github.com/sfilipov/indexed-heapq/issues"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.123.16",
+    "pytest>=8.3.4",
+    "ruff>=0.9.1"
+]
