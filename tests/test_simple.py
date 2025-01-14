@@ -17,13 +17,13 @@ def test_ipq_data_types():
 
 def test_ipq_empty_peek_raises():
     ipq = IndexedHeapQueue()
-    with pytest.raises(IndexError):
+    with pytest.raises(KeyError):
         ipq.peek()
 
 
 def test_ipq_empty_pop_raises():
     ipq = IndexedHeapQueue()
-    with pytest.raises(IndexError):
+    with pytest.raises(KeyError):
         ipq.pop()
 
 
