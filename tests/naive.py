@@ -24,29 +24,30 @@ class NaiveIndexedPriorityQueue(Generic[K, P]):
         match = [item for item in self.pq if item.key == key]
         return len(match) > 0
 
-    def insert(self, key: K, priority: P):
-        match = [item for item in self.pq if item.key == key]
-        if match:
-            raise ValueError(f"Key {key} already in queue")
-
-        item = Comparator(key, priority)
-        heapq.heappush(self.pq, item)
-
-    def update(self, key: K, priority: P):
-        match = [item for item in self.pq if item.key == key]
-        if not match:
-            raise KeyError(f"Key {key} not in queue")
-
-        item = match[0]
-        item.priority = priority
-        heapq.heapify(self.pq)
-
-    def get(self, key: K) -> P:
+    def __getitem__(self, key: K) -> P:
         match = [item for item in self.pq if item.key == key]
         if not match:
             raise KeyError(f"Key {key} not in queue")
 
         return match[0].priority
+
+    def __setitem__(self, key: K, priority: P):
+        match = [item for item in self.pq if item.key == key]
+        if match:
+            item = match[0]
+            item.priority = priority
+            heapq.heapify(self.pq)
+        else:
+            item = Comparator(key, priority)
+            heapq.heappush(self.pq, item)
+
+    def __delitem__(self, key: K):
+        match = [i for i, item in enumerate(self.pq) if item.key == key]
+        if not match:
+            raise KeyError(f"Key {key} not in queue")
+
+        self.pq.pop(match[0])
+        heapq.heapify(self.pq)
 
     def peek(self) -> tuple[K, P]:
         item = self.pq[0]
@@ -55,11 +56,3 @@ class NaiveIndexedPriorityQueue(Generic[K, P]):
     def pop(self) -> tuple[K, P]:
         item = heapq.heappop(self.pq)
         return item.key, item.priority
-
-    def remove(self, key: K):
-        match = [i for i, item in enumerate(self.pq) if item.key == key]
-        if not match:
-            raise KeyError(f"Key {key} not in queue")
-
-        self.pq.pop(match[0])
-        heapq.heapify(self.pq)
