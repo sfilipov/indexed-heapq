@@ -68,6 +68,10 @@ def test_ipq_initialize_from_map(d: dict[int, int]):
     if d:
         min_priority = min(d.values())
         assert ipq.peek()[1] == min_priority
+        assert list(d) == list(ipq)
+        assert list(d.keys()) == list(ipq.keys())
+        assert list(d.values()) == list(ipq.values())
+        assert list(d.items()) == list(ipq.items())
 
 
 @given(dict_of_single())
@@ -75,14 +79,17 @@ def test_ipq_many_gets(d: dict[int, int]):
     ipq = IndexedHeapQueue[int, int]()
     for key, priority in d.items():
         ipq[key] = priority
-    for key, priority in d.items():
         assert key in ipq
         assert ipq[key] == priority
+    assert list(d) == list(ipq)
+    assert list(d.keys()) == list(ipq.keys())
+    assert list(d.values()) == list(ipq.values())
+    assert list(d.items()) == list(ipq.items())
     assert_heap_property(ipq)
 
 
 @given(dict_of_single())
-def test_ipq_many_pops(d: dict[int, int]):
+def test_ipq_many_insert_pops(d: dict[int, int]):
     ipq = IndexedHeapQueue[int, int]()
     for key, priority in d.items():
         ipq[key] = priority
@@ -91,13 +98,24 @@ def test_ipq_many_pops(d: dict[int, int]):
 
 
 @given(dict_of_items(ps_per_key=2))
-def test_ipq_many_sets(d: dict[int, tuple[int, int]]):
+def test_ipq_many_update_pops(d: dict[int, list[int]]):
     ipq = IndexedHeapQueue[int, int]()
     for key, (insert, update) in d.items():
         ipq[key] = insert
         ipq[key] = update
 
     d_upd = {key: priority for key, (_, priority) in d.items()}
+    assert_ipq_contains_exactly(ipq, d_upd)
+
+
+@given(dict_of_items(ps_per_key=2))
+def test_ipq_many_init_update_pops(d: dict[int, list[int]]):
+    d_init = {key: insert for key, (insert, _) in d.items()}
+    ipq = IndexedHeapQueue(d_init)
+    for key, (_, update) in d.items():
+        ipq[key] = update
+
+    d_upd = {key: update for key, (_, update) in d.items()}
     assert_ipq_contains_exactly(ipq, d_upd)
 
 

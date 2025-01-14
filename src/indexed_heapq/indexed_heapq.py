@@ -1,4 +1,5 @@
-from typing import Hashable, Iterable, Protocol, TypeVar, Generic, Optional
+from typing import Hashable, Iterable, Mapping, Protocol, TypeVar, Generic, Optional
+from collections.abc import KeysView, ValuesView, ItemsView
 import heapq
 
 
@@ -31,7 +32,22 @@ class Comparator(Generic[K, P]):
         return f"Comparator({repr(self.key)}, {repr(self.priority)})"
 
 
-class IndexedHeapQueue(Generic[K, P]):
+class IHQKeysView(KeysView):
+    def __repr__(self):
+        return f"KeysView({list(self)})"
+
+
+class IHQValuesView(ValuesView):
+    def __repr__(self):
+        return f"ValuesView({list(self)})"
+
+
+class IHQItemsView(ItemsView):
+    def __repr__(self):
+        return f"ItemsView({list(self)})"
+
+
+class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     """
     Indexed implementation of a min heap.
     The queue stores a set of items, each with an associated priority.
@@ -45,15 +61,30 @@ class IndexedHeapQueue(Generic[K, P]):
             return
         for key in map.keys():
             self.pq.append(Comparator(key, map[key]))
+            # preserve key iteration order of original map
+            self.pq_index[key] = -1
 
         heapq.heapify(self.pq)
-        self.pq_index = {item.key: i for i, item in enumerate(self.pq)}
+        for i, item in enumerate(self.pq):
+            self.pq_index[item.key] = i
 
     def __len__(self) -> int:
-        return len(self.pq)
+        return len(self.pq_index)
 
-    def __contains__(self, key: K) -> bool:
+    def __contains__(self, key: object, /) -> bool:
         return key in self.pq_index
+
+    def __iter__(self):
+        return iter(self.pq_index)
+
+    def keys(self):
+        return IHQKeysView(self)
+
+    def values(self):
+        return IHQValuesView(self)
+
+    def items(self):
+        return IHQItemsView(self)
 
     def peek(self) -> tuple[K, P]:
         """
