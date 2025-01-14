@@ -49,11 +49,31 @@ class IHQItemsView(ItemsView):
 
 class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     """
-    Indexed implementation of a min heap.
-    The queue stores a set of items, each with an associated priority.
+    Indexed implementation of a priority queue using a min heap data structure.
+    Maintains a mapping between keys and their priorities while providing efficient
+    access to the minimum priority element.
+
+    The queue stores a set of items, each with an associated priority. Items can be
+    accessed, modified, or removed by their keys in O(log n) time, while still
+    maintaining the min-heap property for efficient minimum priority access.
+
+    Type Parameters:
+        K: The type of keys used to identify items. Must be Hashable.
+        P: The type of priorities. Must support less-than comparison.
     """
 
     def __init__(self, map: Optional[SupportsKeysAndGetItem[K, P]] = None, /):
+        """
+        Initialize a new IndexedHeapQueue, optionally from an existing mapping.
+
+        Args:
+            map: An optional mapping-like object. If provided, all key-priority pairs
+                from the map will be added to the queue while preserving the
+                key iteration order of the original map.
+
+        Time Complexity: O(n) where n is the number of items in the input map.
+        Space Complexity: O(n)
+        """
         self.pq: list[Comparator[K, P]] = []
         self.pq_index: dict[K, int] = {}
 
@@ -89,22 +109,77 @@ class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     def peek(self) -> tuple[K, P]:
         """
         Return the item with the minimum priority without removing it.
+
+        Returns:
+            A tuple (key, priority) containing the key and priority of the item
+            with minimum priority in the queue.
+
+        Raises:
+            KeyError: If the queue is empty.
+
+        Time Complexity: O(1)
+        Space Complexity: O(1)
+
+        Example:
+            >>> ihq = IndexedHeapQueue({'a': 2, 'b': 1, 'c': 3})
+            >>> ihq.peek()
+            ('b', 1)
+            >>> len(ihq)  # peek doesn't remove the item
+            3
         """
         if not self.pq:
-            raise IndexError("peek from empty priority queue")
+            raise KeyError("peek(): queue is empty")
         return self.pq[0].key, self.pq[0].priority
 
     def __getitem__(self, key: K) -> P:
         """
         Return the priority of the item with the given key.
+
+        Args:
+            key: The key whose priority should be returned.
+
+        Returns:
+            The priority associated with the given key.
+
+        Raises:
+            KeyError: If the key is not present in the queue.
+
+        Time Complexity: O(1)
+        Space Complexity: O(1)
+
+        Example:
+            >>> ihq = IndexedHeapQueue({'a': 1, 'b': 2})
+            >>> ihq['a']
+            1
+            >>> ihq['c']  # raises KeyError
         """
         if key not in self.pq_index:
-            raise KeyError(f"key {key} not in priority queue")
+            raise KeyError(key)
         return self.pq[self.pq_index[key]].priority
 
     def __setitem__(self, key: K, priority: P) -> None:
         """
-        Set the given priority for the given key.
+        Set or update the priority for the given key.
+
+        If the key already exists, updates its priority and reorders the heap
+        to maintain the min-heap property. If the key doesn't exist, adds a
+        new key-priority pair to the queue.
+
+        Args:
+            key: The key whose priority should be set or updated.
+            priority: The new priority value to associate with the key.
+
+        Time Complexity: O(log n) where n is the number of items in the queue
+        Space Complexity: O(1)
+
+        Example:
+            >>> ihq = IndexedHeapQueue({'a': 3})
+            >>> ihq['b'] = 2  # Add new key-priority pair
+            >>> ihq.peek()
+            ('b', 2)
+            >>> ihq['a'] = 1  # Update existing key's priority
+            >>> ihq.peek()
+            ('a', 1)
         """
 
         if key not in self.pq_index:
@@ -124,10 +199,28 @@ class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
 
     def __delitem__(self, key: K) -> None:
         """
-        Remove the item with the given key.
+        Remove the item with the given key from the queue.
+
+        Args:
+            key: The key of the item to remove.
+
+        Raises:
+            KeyError: If the key is not present in the queue.
+
+        Time Complexity: O(log n) where n is the number of items in the queue
+        Space Complexity: O(1)
+
+        Example:
+            >>> ihq = IndexedHeapQueue({'a': 1, 'b': 2})
+            >>> 'a' in ihq
+            True
+            >>> del ihq['a']
+            >>> 'a' in ihq
+            False
+            >>> del ihq['c']  # raises KeyError
         """
         if key not in self.pq_index:
-            raise KeyError(f"key {key} not in priority queue")
+            raise KeyError(key)
         index = self.pq_index[key]
         last_item = self.pq.pop()
         if index < len(self.pq):
@@ -140,10 +233,27 @@ class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     def pop(self) -> tuple[K, P]:
         """
         Remove and return the item with the minimum priority.
+
+        Returns:
+            A tuple (key, priority) containing the key and priority of the removed
+            item with minimum priority in the queue.
+
+        Raises:
+            KeyError: If the queue is empty.
+
+        Time Complexity: O(log n) where n is the number of items in the queue
+        Space Complexity: O(1)
+
+        Example:
+            >>> ihq = IndexedHeapQueue({'a': 1, 'b': 2, 'c': 3})
+            >>> ihq.pop()
+            ('a', 1)
+            >>> len(ihq)
+            2
         """
 
         if not self.pq:
-            raise IndexError("pop from empty priority queue")
+            raise KeyError("pop(): queue is empty")
         min_item = self.pq[0]
         last_item = self.pq.pop()
         if self.pq:
@@ -156,6 +266,15 @@ class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     def _sift_up(self, index: int):
         """
         Move the item at the given index up the heap until it is in the correct position.
+
+        Internal method used to maintain the min-heap property after inserting a new
+        item or decreasing a priority.
+
+        Args:
+            index: The index of the item to sift up.
+
+        Time Complexity: O(log n) where n is the number of items in the queue
+        Space Complexity: O(1)
         """
         while index > 0:
             parent_index = (index - 1) // 2
@@ -173,6 +292,15 @@ class IndexedHeapQueue(Generic[K, P], Mapping[K, P]):
     def _sink_down(self, index: int):
         """
         Move the item at the given index down the heap until it is in the correct position.
+
+        Internal method used to maintain the min-heap property after removing the
+        minimum item or increasing a priority.
+
+        Args:
+            index: The index of the item to sink down.
+
+        Time Complexity: O(log n) where n is the number of items in the queue
+        Space Complexity: O(1)
         """
         while True:
             left_idx = 2 * index + 1
